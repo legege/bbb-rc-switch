@@ -37,7 +37,10 @@ START:
 
     MOV     r0, 0                           // Zero status register
     MOV     r1, 0                           // Zero data register
-    SBCO    r0, CONST_PRUSHAREDRAM, 0, 8    // Write out to shared RAM
+    SBCO    r0, CONST_PRUSHAREDRAM, 0, 4    // Write out to shared RAM
+MESSAGE_LOOP:
+    MOV     r5, 0                           // Zero message repeat count register
+    MOV     r6, 0                           // Zero previous message register
 WAIT_FOR_SYNC:
     WBS     r31.t0                          // Wait for rising edge
     WBC     r31.t0                          // Wait for falling edge
@@ -48,7 +51,7 @@ SYNC_SPIN:                                  // Look for sync period
     QBBS    WAIT_FOR_SYNC, r31.t0           // If we get rising edge in sync period, out of sync, so reset
     QBGT    SYNC_SPIN, r2, r3               // If we reach 31 * 300ms (15ns/spin, 5ns/instruction), we're synced
 
-    MOV     r4, 0                           // Counter of bits received
+    MOV     r4, 23                          // Counter of bits to receive
 RECEIVE_BIT:                                // Start of receiving loop
     MOV     r2, 0                           // Zero counter of high cycles
     WBS     r31.t0                          // Wait for rising edge
@@ -56,7 +59,7 @@ BIT_SPIN:
     ADD     r2, r2, 1                       // Count high cycles (10ns/spin, 5ns/instruction)
     QBBS    BIT_SPIN, r31.t0                // Spin while input high
 
-    MOV     r3, 700000/10                   // Threshold value for 0/1 (600000ns at 10ns/spin
+    MOV     r3, 700000/10                   // Threshold value for 0/1 (700000ns at 10ns/spin
     QBGT    BIT_0, r2, r3                   // If threshold is greater than value we have a zero
     QBLT    BIT_1, r2, r3                   // If threshold if less than value, we have a 1
     QBA     WAIT_FOR_SYNC                   // If neither are true (this can't happen!), go back to the start
@@ -67,16 +70,25 @@ BIT_0:                                      // If we have a zero
 BIT_1:                                      // If we have a one
     SET     r1, r4                          // Set the corresponding bit of the output
     QBA     DONE_BIT
-
 DONE_BIT:
-    ADD     r4, r4, 1                       // Increment bit counter
-    QBNE    RECEIVE_BIT, r4, 24             // If we don't have 24 bits, wait for another one
+    QBEQ    DONE_MESSAGE, r4, 0             // No more bits to receive
+    SUB     r4, r4, 1                       // Decrement bit to receive counter
+    QBA     RECEIVE_BIT
 
-    SBCO    r1, CONST_PRUSHAREDRAM, 4, 8    // Move data register in to shared memory
+DONE_MESSAGE:
+    QBEQ    INCREMENT_REPEAT, r1, r6        // If previous message is equal than we need to increment repeat count
+    MOV     r5, 0                           // This is the first message received, reset repeat count
+    MOV     r6, r1                          // and store the read message
+    QBA     WAIT_FOR_SYNC
 
+INCREMENT_REPEAT:
+    ADD     r5, r5, 1                       // Increment message repeat count
+    QBGE    WAIT_FOR_SYNC, r5, 2            // We need 3 identical messages before continuing, so 2 repeat
+
+    SBCO    r1, CONST_PRUSHAREDRAM, 4, 4    // Move data register in to shared memory
     MOV     r0, 1                           // Set status to 1
     SBCO    r0, CONST_PRUSHAREDRAM, 0, 4    // Move status register in to shared memory
 
-    QBA     WAIT_FOR_SYNC                   // Got back to the start
+    QBA     MESSAGE_LOOP                    // Got back to the start
 
     HALT

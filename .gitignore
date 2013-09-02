@@ -1,4 +1,5 @@
-rc_switch
+receiver
+sender
 *.bin
 am335x_pru_package
 dtbos/*.dtbo
