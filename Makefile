@@ -12,4 +12,4 @@ rc_switch_in.bin: src/rc_switch_in.p include/pru.hp
 	cd src; pasm -b rc_switch_in.p; mv rc_switch_in.bin ../; cd ..
 	
 clean:
-	rm rc_switch_out.bin rc_switch src/*.o
+	rm rc_switch_*.bin rc_switch src/*.o
