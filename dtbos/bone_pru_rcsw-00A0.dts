@@ -1,0 +1,30 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+    /* identification */
+    part-number = "rc_switch_pru";
+
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+        __overlay__ {
+            pinmux_rcswitch_pins: pinmux_rcswitch_pins {
+                pinctrl-single,pins = <
+                    0x190 0x26  /* P9_31 to PRU input */
+                >;
+            };
+        };
+    };
+
+    fragment@1 {
+        target = <&pruss>;
+        __overlay__ {
+            status = "okay";
+            pinctrl-names = "default";
+            pinctrl-0 = <&pinmux_rcswitch_pins>;
+        };
+    };
+};
+

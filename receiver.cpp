@@ -18,29 +18,51 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "pru.h"
 
-// Entry point
-int main() {
-    // Initialise PRU
-    PRU *myPRU1 = new PRU(1);
-    myPRU1->stop();
+PRU *pru;
 
-        // Run PRU1, this will block until PRU0 pulls pin high at start of sync
-        myPRU1->execute("rc_switch_in.bin");    
+void my_handler(int s){
+    printf("Caught signal %d\n",s);
+    pru->stop();
+    exit(1); 
+}
+
+// Entry point
+int main(int argc, char* argv[]) {
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = my_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction(SIGINT, &sigIntHandler, NULL);
+
+    // Initialise PRU
+    int p = 0;
+    if (argv[1] != NULL) {
+        p = atoi(argv[1]);
+    }
+
+    printf("PRU #%d\n", p);
+    pru = new PRU(p);
+    pru->stop();
+
+    pru->execute("rc_switch_in.bin");    
 
     while(1) {
 
-        // Wait until PRU1 status is set to 1, indicating data has arrived
-        while (myPRU1->getSharedMemoryInt(2048 + 0) < 1) {
+        // Wait until PRU status is set to 1, indicating data has arrived
+        while (pru->getSharedMemoryInt(2048 + 0) < 1) {
         }
     
         // Get data
-        int data = myPRU1->getSharedMemoryInt(2048 + 1);
+        int data = pru->getSharedMemoryInt(2048 + 1);
         printf("%d\n", data);
         
         // Clear the status register so we know data has been dealt with
-        myPRU1->setSharedMemoryInt(2048 + 0, 0);
+        pru->setSharedMemoryInt(2048 + 0, 0);
     }
 }
  
